@@ -1,0 +1,8 @@
+*.vmdk
+*.vmx
+*.vmem
+*.vmsn
+*.iso
+*.lck/
+*.zip
+*.env
