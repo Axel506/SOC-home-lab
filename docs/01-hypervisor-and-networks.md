@@ -100,16 +100,24 @@ Why VMnet2 has no host adapter: a host adapter gives the host an IP address on t
 
 **Fix:** stage first (`git add`), read `git status` before committing, use hyphenated filenames, and write commit messages that describe what changed.
 
-## Open issue: two drives not detected
+## Storage incident: two drives dropped (mitigated, monitoring)
 
-`Get-ChildItem D:\Lab` listed my folders at first, then later reported that the path did not exist. `Get-Disk` now lists only disk 0 (Seagate 2 TB) and disk 3 (Samsung 980 PRO). Disks 1 (WD 8 TB) and 2 (WD 1 TB), which were present earlier, are not listed at all. They are not "offline"; Windows cannot see them.
+**Timeline (System event log, 2026-09-20):**
+- 3:22:44 PM — `storahci` event 129: reset issued to `\Device\RaidPort1` (twice)
+- 3:22:45 PM — `disk` event 157: Disk 1 (WD 8 TB) and Disk 2 (WD 1 TB) surprise removed
+- 4:18 PM — next boot; both drives detected again
 
-Cause: not yet determined. Next steps: full shutdown, reseat the SATA data and power connectors, check the BIOS storage page, and re-run `Get-Disk`. Until then, ISOs go in `C:\ISO`, and the sample vault will not be used.
+**Scope:** only the two WD drives dropped. The Seagate HDD and the NVMe were unaffected, which
+points at something the two WD drives share: their SATA controller, link power management,
+or power lead.
 
-## Lessons learned
-- Windows security features are layered, each with its own switch. Verify the state after every change, because a later change can undo an earlier one.
-- Timebox troubleshooting. After three attempts with no new evidence, document the state and continue.
-- Check the addressing of the real network before choosing lab subnets.
-- Verify the working directory (`pwd`) before any command that writes.
-- Read error messages literally. Both Git errors described the exact problem.
-- Documentation must describe what was verified, not what was intended.
+**Evidence after recovery:** SMART shows 0 read errors on all HDDs. No further 129/157 events.
+
+**Root cause:** not determined.
+
+**Mitigation (2026-09-26):** AHCI Link Power Management set to Active; disk spin-down disabled.
+
+**Monitoring:** weekly event log check, filtered by provider and ID:
+`Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='storahci','disk'; Id=129,157; StartTime=(Get-Date).AddDays(-7)}`.
+The malware sample vault stays unused until two weeks pass with no events. If they recur,
+the connectors will be reseated.
